@@ -1,41 +1,61 @@
-import gym
+import gymnasium
 #import gym_sokoban
-
 from stable_baselines3 import PPO
+from stable_baselines3.common.vec_env import DummyVecEnv
+import numpy as np
+import matplotlib.pyplot as plt
+plt.ion()   # Turn on interactive mode
 
-import time
+n_envs = 4
+env_name = 'CartPole-v1'
+max_episode_steps=512
+render_mode = 'rgb_array'  
+policy_name = "MlpPolicy"         
+RND_reward = True   
+RND_learning_rate = 0.0001
+intrinsic_importance_coef = 1000
 
-
-env_name = 'CartPole-v0'
 #set the model_logs path adequately
-model_logs_dir = "./model_logs" + '/' + env_name + '/'
+logs_dir ="./logs" + '/' + env_name + '/' + policy_name + '/' + f"RND_reward={RND_reward}" + '/' 
+if RND_reward:
+    logs_dir = logs_dir + f"RND_learning_rate={RND_learning_rate}~intrinsic_importance_coef={intrinsic_importance_coef}" + '/'
+logs_dir = logs_dir + "models" + '/'
 #choose the logfile to load
-log_name = "2024-04-23-13-05~PPO_model~CartPole-v0~policy_kwargs=None~total_timesteps=51200"
+log_name = "PPO~learning_rate=0.0003~n_steps=2048~batch_size=64~n_epochs=10~gamma=0.99~ent_coef=0.01~n_policy_updates=302024-04-25-16-05"
 #load the model
-model = PPO.load(model_logs_dir+log_name)
-#create environment
-env=gym.make(env_name)
+model = PPO.load(logs_dir+log_name)
+
+# Define environment creation function
+def make_env(env_name, render_mode, max_episode_steps):
+    def _init():    #init is to create different instances intead of having the same environment every time
+        env = gymnasium.make(env_name, render_mode=render_mode, max_episode_steps=max_episode_steps)
+        return env
+    return _init
+#create vectorized environment
+vec_env = DummyVecEnv([make_env(env_name, render_mode, max_episode_steps) for _ in range(n_envs)])
 
 
 #---MODEL_TESTING---#
 
-obs = env.reset()
-done = False
+obs = vec_env.reset()
+done = np.array(False)
 total_reward = 0
-while not done:
+while not done.any():
     prediction = model.predict(obs,deterministic=False) #deterministic = FALSE !!!!
     action, _ = prediction
-    int_action = int(action)                            #action type tuple -> int
 
-    obs, reward, done, _ = env.step(int_action)     #use prediction function of the MDP to change the state according to the action taken last step
+    print(f"action: {action}                        - action type:{type(action)}")
+
+    obs, reward, done, _ = vec_env.step(action)     #use prediction function of the MDP to change the state according to the action taken last step
     total_reward += reward                          #count total reward
-    env.render()                                    #render environment
 
-    #print(f"action: {action}                        - action type:{type(action)}")
-    print(f"int_action: {int_action}                    - int_action type:{type(int_action)}")
     print(f"reward: {reward}                      - total_reward={total_reward}\n")
-
-    time.sleep(0.1)                                 #pause time to see the agent move not too fast
+    
+    # rendering
+    plt.clf()
+    plt.imshow(vec_env.render())
+    plt.draw()
+    plt.pause(0.01)  
 
 print(f"Total Reward = {total_reward}")
-env.close()
+vec_env.close()

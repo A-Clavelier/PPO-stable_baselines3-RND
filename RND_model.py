@@ -14,9 +14,10 @@ import torch.nn.functional as F
 #                                   The logic is that unfamiliar inputs will likely produce higher 
 #                                   prediction errors, thereby encouraging the agent to explore them.
 class RND_model(nn.Module):
-    def __init__(self, input_dim, input_is_discrete, verbose=0):
+    def __init__(self, input_dim, intrinsic_importance_coef, RND_learning_rate, input_is_discrete, verbose=0):
         super(RND_model, self).__init__()
         self.verbose=verbose
+        self.intrinsic_importance_coef=intrinsic_importance_coef
 
         # Tackle discrete input problem by adding an embedding layer
         self.input_is_discrete = input_is_discrete
@@ -26,15 +27,26 @@ class RND_model(nn.Module):
             input_dim = 10  # Output dimension of embedding layer becomes the input dim for the next layers
         
         #create predictor and target networks with random weights
-        self.predictor = nn.Linear(input_dim, 256)
-        self.target = nn.Linear(input_dim, 256)
+        self.predictor = nn.Sequential(
+                                        nn.Linear(input_dim, 512),
+                                        nn.ReLU(),
+                                        nn.Linear(512, 512),
+                                        nn.ReLU()
+                                        )
+
+        self.target =  nn.Sequential(
+                                        nn.Linear(input_dim, 512),
+                                        nn.ReLU(),
+                                        nn.Linear(512, 512),
+                                        nn.ReLU()
+                                        )
 
         #Freeze the target network so it does not train
         for p in self.target.parameters():
             p.requires_grad = False     
 
         #Initialize optimizer for the predictor network
-        self.optimizer = torch.optim.Adam(self.predictor.parameters(), lr=0.001)
+        self.optimizer = torch.optim.Adam(self.predictor.parameters(), lr=RND_learning_rate)
 
     def forward(self, x):
 
@@ -66,7 +78,7 @@ class RND_model(nn.Module):
         loss.backward()             # Backpropagate the gradients
         self.optimizer.step()       # Update the predictor network parameters
 
-        return loss.detach().numpy()*1000
+        return loss.detach().numpy()*self.intrinsic_importance_coef
     
         #intrinsic reward is a conversion of the loss tensor into numpy array.
         #(for reward concatenation compatibility) 
