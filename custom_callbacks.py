@@ -4,7 +4,13 @@ import matplotlib.pyplot as plt
 plt.ion()   # Turn on interactive mode
 import numpy as np
 
+class DoNothingCallback(BaseCallback):
+    def __init__(self, verbose=0):
+        super(DoNothingCallback, self).__init__(verbose)
 
+    def _on_step(self) -> bool:
+        return True
+    
 class RND_reward_callback(BaseCallback):
     """
     Custom callback implementing intrinsinc rewards for exploration through RND.

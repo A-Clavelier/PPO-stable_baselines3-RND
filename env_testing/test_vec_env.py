@@ -8,9 +8,9 @@ plt.ion()   # Turn on interactive mode
 import time
 
 n_envs=4
-env_name = 'CartPole-v1'
+env_name = 'MountainCar-v0'
 render_mode = 'rgb_array'       
-max_episode_steps=200
+max_episode_steps=500
 
 # Define environment creation function
 def make_env(env_name, render_mode, max_episode_steps):

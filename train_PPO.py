@@ -22,9 +22,9 @@ if load:         #choose the logfile to load
 
 #env parameters
 n_envs = 4                      #define the number of environments running in parallel
-env_name = 'CartPole-v1'        #define the environment you want to create an agent for
+env_name = 'MountainCar-v0'        #define the environment you want to create an agent for
 render_mode = 'rgb_array'       
-max_episode_steps=512
+max_episode_steps=1024
 
 if not load:
     #Policy choice
@@ -33,26 +33,26 @@ if not load:
 
     #PPO model parameters           #default values
     learning_rate = 0.0003          #0.0003     Reduce if results are unstable
-    n_steps =  512                  #2048       number of steps of a rollout (between each policy updates) 
+    n_steps =  2048                 #2048       number of steps of a rollout (between each policy updates) 
     batch_size = 64                 #64         Increase for more stable but slower learning (the info of the n_steps is spread into multiple batches to perform the policy update) 
     n_epochs = 10                   #10         number of optimization epochs to perform on each batch of samples
     gamma = 0.99                    #0.99       Discount factor Adjust according to the importance of future rewards
     ent_coef = 0.01                 #0.0        Slightly higher entropy coefficient to promote exploration
 
 #training parameters
-n_policy_updates = 30                                   #number of policy updates during training
+n_policy_updates = 50                                   #number of policy updates during training
 total_timesteps = n_policy_updates*n_steps*n_envs       #number of environment steps during this training
 
 #RND intinsic rewards parameters
-RND_reward = True               #wether to use the RND_reward_callback to tackle sparse rewards problems
-RND_learning_rate = 0.001       #0.0001 default
-intrinsic_importance_coef = 100
+RND_reward = True                #wether to use the RND_reward_callback to tackle sparse rewards problems
+RND_learning_rate = 0.0001        #0.0001 default
+intrinsic_importance_coef = 500
 
 #rendering parameters
-show = True                         #render while learning?
+show = False                         #render while learning?
 sleep_time = 0.01                   #sleep time between each rendered frames (slow but clear vision)
-period = 5                          #how many policy updates between two rendered rollouts (1: every rollout is rendered)
-episodes_redered_by_rollout = 2     #how many episodes to render in a rendered rollout
+period = 1                          #how many policy updates between two rendered rollouts (1: every rollout is rendered)
+episodes_redered_by_rollout = 1     #how many episodes to render in a rendered rollout
 
 #hardware parameters
 device = 'cpu'
@@ -132,9 +132,6 @@ else:       #initialise PPO model with a MlpPolicy
 #if RND callback is used, create the RNDModel network (from auxiliary_models.py)
 if RND_reward:
     #check if the observation space is discrete or not to let the RNDModel know if the input needs embedding
-    print(f"vec_env.observation_space: {vec_env.observation_space};"
-         +f"                Type: {type(vec_env.observation_space)}")
-
     if isinstance(vec_env.observation_space, gymnasium.spaces.Discrete):
         observation_space_is_discrete = True
         observation_space_dim = vec_env.observation_space.n
@@ -150,19 +147,19 @@ if RND_reward:
 #train PPO model (the training tunes the MLP so that the policy maximises its reward)
 model.learn(total_timesteps=total_timesteps,
             callback=[
-                custom_callbacks.RND_reward_callback(RND_model, verbose=0),
-                custom_callbacks.reward_logger_callback(verbose=0),
-                custom_callbacks.model_saver_callback(model, 
-                                                      model_logs_dir, 
-                                                      log_name, 
-                                                      verbose=0),
-                custom_callbacks.render_callback(vec_env, 
-                                                 model, 
-                                                 n_policy_updates, 
-                                                 show, 
-                                                 sleep_time, 
-                                                 period, 
-                                                 episodes_redered_by_rollout, verbose=0)
+custom_callbacks.RND_reward_callback(RND_model, verbose=0) if RND_reward else custom_callbacks.DoNothingCallback(),
+custom_callbacks.reward_logger_callback(verbose=0),
+custom_callbacks.model_saver_callback(model, 
+                                    model_logs_dir, 
+                                    log_name, 
+                                    verbose=0),
+custom_callbacks.render_callback(vec_env, 
+                                model, 
+                                n_policy_updates, 
+                                show, 
+                                sleep_time, 
+                                period, 
+                                episodes_redered_by_rollout, verbose=0)
                       ],
             tb_log_name=log_name)
 

@@ -7,13 +7,13 @@ import matplotlib.pyplot as plt
 plt.ion()   # Turn on interactive mode
 
 n_envs = 4
-env_name = 'CartPole-v1'
+env_name = 'MountainCar-v0'
 max_episode_steps=512
 render_mode = 'rgb_array'  
 policy_name = "MlpPolicy"         
 RND_reward = True   
 RND_learning_rate = 0.0001
-intrinsic_importance_coef = 1000
+intrinsic_importance_coef = 500
 
 #set the model_logs path adequately
 logs_dir ="./logs" + '/' + env_name + '/' + policy_name + '/' + f"RND_reward={RND_reward}" + '/' 
@@ -21,7 +21,7 @@ if RND_reward:
     logs_dir = logs_dir + f"RND_learning_rate={RND_learning_rate}~intrinsic_importance_coef={intrinsic_importance_coef}" + '/'
 logs_dir = logs_dir + "models" + '/'
 #choose the logfile to load
-log_name = "PPO~learning_rate=0.0003~n_steps=2048~batch_size=64~n_epochs=10~gamma=0.99~ent_coef=0.01~n_policy_updates=302024-04-25-16-05"
+log_name = "PPO~learning_rate=0.0003~n_steps=2048~batch_size=64~n_epochs=10~gamma=0.99~ent_coef=0.01~n_policy_updates=502024-04-25-19-52"
 #load the model
 model = PPO.load(logs_dir+log_name)
 
@@ -40,7 +40,7 @@ vec_env = DummyVecEnv([make_env(env_name, render_mode, max_episode_steps) for _ 
 obs = vec_env.reset()
 done = np.array(False)
 total_reward = 0
-while not done.any():
+while not done.all():
     prediction = model.predict(obs,deterministic=False) #deterministic = FALSE !!!!
     action, _ = prediction
 
