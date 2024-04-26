@@ -8,7 +8,7 @@ plt.ion()   # Turn on interactive mode
 import time
 
 n_envs=4
-env_name = 'MountainCar-v0'
+env_name = 'LunarLander-v2'
 render_mode = 'rgb_array'       
 max_episode_steps=500
 

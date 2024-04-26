@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 plt.ion()   # Turn on interactive mode
 import time
 
-env_name = 'LunarLander-v2'
+env_name = 'FrozenLake-v1'
 render_mode = 'rgb_array'       
 max_episode_steps=500
 env=gymnasium.make(env_name,render_mode=render_mode, max_episode_steps=max_episode_steps)

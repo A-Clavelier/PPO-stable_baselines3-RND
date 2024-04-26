@@ -5,8 +5,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv
 
 import custom_policies
-import custom_callbacks
-import RND_model
+from custom_callback import custom_callback
+from RND_model import RND_model
 
 from datetime import datetime
 import os
@@ -22,7 +22,7 @@ if load:         #choose the logfile to load
 
 #env parameters
 n_envs = 4                      #define the number of environments running in parallel
-env_name = 'MountainCar-v0'        #define the environment you want to create an agent for
+env_name = 'LunarLander-v2'     #define the environment you want to create an agent for
 render_mode = 'rgb_array'       
 max_episode_steps=1024
 
@@ -46,13 +46,13 @@ total_timesteps = n_policy_updates*n_steps*n_envs       #number of environment s
 #RND intinsic rewards parameters
 RND_reward = True                #wether to use the RND_reward_callback to tackle sparse rewards problems
 RND_learning_rate = 0.0001        #0.0001 default
-intrinsic_importance_coef = 500
+intrinsic_importance_coef = 1000
 
 #rendering parameters
 show = False                         #render while learning?
 sleep_time = 0.01                   #sleep time between each rendered frames (slow but clear vision)
-period = 1                          #how many policy updates between two rendered rollouts (1: every rollout is rendered)
-episodes_redered_by_rollout = 1     #how many episodes to render in a rendered rollout
+period = 5                          #how many policy updates between two rendered rollouts (1: every rollout is rendered)
+episodes_redered_by_rollout = 4     #how many episodes to render in a rendered rollout
 
 #hardware parameters
 device = 'cpu'
@@ -76,8 +76,8 @@ if RND_reward:
     logs_dir = logs_dir + '/' + f"RND_learning_rate={RND_learning_rate}~intrinsic_importance_coef={intrinsic_importance_coef}" + '/'
     dir_creation(logs_dir)
 #set the log directory path for the model and the tensorboard files
-model_logs_dir = logs_dir+ '/' + "models" + '/'
-dir_creation(model_logs_dir)
+PPO_model_logs_dir = logs_dir+ '/' + "models" + '/'
+dir_creation(PPO_model_logs_dir)
 tensorboard_logs_dir = logs_dir+ '/' + "tensorboard" + '/'
 dir_creation(tensorboard_logs_dir)
 
@@ -107,14 +107,14 @@ vec_env = DummyVecEnv([make_env(env_name, render_mode, max_episode_steps) for _ 
 #---------------------------------------------PPO_MODEL_CALL---------------------------------------------------#
 
 if load:    #load the model
-    model = PPO.load(model_logs_dir+log_name,
+    PPO_model = PPO.load(PPO_model_logs_dir+log_name,
                      vec_env,
                      device=device,
                      print_system_info=True,
                      tensorboard_log=tensorboard_logs_dir)
 
 else:       #initialise PPO model with a MlpPolicy
-    model = PPO(policy=policy, 
+    PPO_model = PPO(policy=policy, 
                 env=vec_env,
                 device=device,
                 learning_rate=learning_rate,
@@ -131,40 +131,18 @@ else:       #initialise PPO model with a MlpPolicy
 
 #if RND callback is used, create the RNDModel network (from auxiliary_models.py)
 if RND_reward:
-    #check if the observation space is discrete or not to let the RNDModel know if the input needs embedding
-    if isinstance(vec_env.observation_space, gymnasium.spaces.Discrete):
-        observation_space_is_discrete = True
-        observation_space_dim = vec_env.observation_space.n
-    else:
-        observation_space_is_discrete = False
-        observation_space_dim = vec_env.observation_space.shape[0]
+    #get the dimension of the observation space of the model
+    observation_space_dim = vec_env.observation_space.shape[0]
     # Initialize the RND model with the appropriate state dimension
-    RND_model = RND_model.RND_model(observation_space_dim,
-                                    intrinsic_importance_coef,
-                                    RND_learning_rate,
-                                    observation_space_is_discrete, verbose=0).to(device)
+    RND = RND_model(observation_space_dim,
+                    intrinsic_importance_coef,
+                    RND_learning_rate, verbose=0).to(device)
 
 #train PPO model (the training tunes the MLP so that the policy maximises its reward)
-model.learn(total_timesteps=total_timesteps,
-            callback=[
-custom_callbacks.RND_reward_callback(RND_model, verbose=0) if RND_reward else custom_callbacks.DoNothingCallback(),
-custom_callbacks.reward_logger_callback(verbose=0),
-custom_callbacks.model_saver_callback(model, 
-                                    model_logs_dir, 
-                                    log_name, 
-                                    verbose=0),
-custom_callbacks.render_callback(vec_env, 
-                                model, 
-                                n_policy_updates, 
-                                show, 
-                                sleep_time, 
-                                period, 
-                                episodes_redered_by_rollout, verbose=0)
-                      ],
+PPO_model.learn(total_timesteps=total_timesteps,
+            callback= custom_callback(RND_reward, RND,
+                                      PPO_model, PPO_model_logs_dir, log_name,
+                                      show, n_envs, vec_env, sleep_time, period, episodes_redered_by_rollout, n_policy_updates,
+                                      verbose=1),
             tb_log_name=log_name)
-
-
-#------------------------------------------------PPO_MODEL_SAVE------------------------------------------------#
-
-model.save(model_logs_dir+log_name)
 
