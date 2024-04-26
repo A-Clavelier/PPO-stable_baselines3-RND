@@ -9,9 +9,17 @@ import torch.nn.functional as F
 #                                   The logic is that unfamiliar inputs will likely produce higher 
 #                                   prediction errors, thereby encouraging the agent to explore them.
 class RND_model(nn.Module):
-    def __init__(self, input_dim, intrinsic_importance_coef, RND_learning_rate, verbose=0):
+    def __init__(self, input_is_discrete, input_dim, intrinsic_importance_coef, RND_learning_rate, verbose=0):
         super(RND_model, self).__init__()
         self.verbose=verbose
+
+        # Tackle discrete input problem by adding an embedding layer
+        self.input_is_discrete = input_is_discrete
+        if self.verbose>=1: print(f"RND input is discrete: {input_is_discrete}")
+        if input_is_discrete:
+            self.embed = nn.Embedding(num_embeddings=input_dim, embedding_dim=10)  # embedding dim 10
+            input_dim = 10  # Output dimension of embedding layer becomes the input dim for the next layers
+
         self.intrinsic_importance_coef=intrinsic_importance_coef
         #create predictor and target networks with random weights
         self.predictor = nn.Sequential(
@@ -33,6 +41,11 @@ class RND_model(nn.Module):
         self.optimizer = torch.optim.Adam(self.predictor.parameters(), lr=RND_learning_rate)
 
     def forward(self, x): 
+
+        # Tackle discrete input problem by adding an embedding layer
+        if self.input_is_discrete:
+            x = self.embed(x.long())    # Ensure x is long type for embedding
+
         pred = self.predictor(x)        #get predictor Network Output and compute gradient
         with torch.no_grad():           #tell PyTorch not to compute or store gradients within this block. 
             target = self.target(x)     #get target Network Output without computing gradient and updating wheights
@@ -72,7 +85,7 @@ if __name__ == '__main__':
     window_size = 10
     indices = range(iterations-window_size+1)
     input_dim = 2
-    intrinsic_importance_coef = 10000
+    intrinsic_importance_coef = 10
     LRS = [0.001,0.0005, 0.0001, 0.00005,0.00001]
 
     def moving_average(data, window_size):

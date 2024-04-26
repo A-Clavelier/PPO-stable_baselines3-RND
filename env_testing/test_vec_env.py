@@ -8,7 +8,7 @@ plt.ion()   # Turn on interactive mode
 import time
 
 n_envs=4
-env_name = 'LunarLander-v2'
+env_name = 'ALE/MontezumaRevenge-v5'
 render_mode = 'rgb_array'       
 max_episode_steps=500
 

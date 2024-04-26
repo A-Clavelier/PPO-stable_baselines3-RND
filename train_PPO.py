@@ -21,8 +21,8 @@ if load:         #choose the logfile to load
 #----------------------------------------------PARAMETERS------------------------------------------------------#
 
 #env parameters
-n_envs = 4                      #define the number of environments running in parallel
-env_name = 'LunarLander-v2'     #define the environment you want to create an agent for
+n_envs = 4                              #define the number of environments running in parallel
+env_name = 'ALE/MontezumaRevenge-v5'    #define the environment you want to create an agent for
 render_mode = 'rgb_array'       
 max_episode_steps=1024
 
@@ -44,12 +44,12 @@ n_policy_updates = 50                                   #number of policy update
 total_timesteps = n_policy_updates*n_steps*n_envs       #number of environment steps during this training
 
 #RND intinsic rewards parameters
-RND_reward = True                #wether to use the RND_reward_callback to tackle sparse rewards problems
+RND_reward = False                #wether to use the RND_reward_callback to tackle sparse rewards problems
 RND_learning_rate = 0.0001        #0.0001 default
-intrinsic_importance_coef = 1000
+intrinsic_importance_coef = 10
 
 #rendering parameters
-show = False                         #render while learning?
+show = True                         #render while learning?
 sleep_time = 0.01                   #sleep time between each rendered frames (slow but clear vision)
 period = 5                          #how many policy updates between two rendered rollouts (1: every rollout is rendered)
 episodes_redered_by_rollout = 4     #how many episodes to render in a rendered rollout
@@ -131,18 +131,26 @@ else:       #initialise PPO model with a MlpPolicy
 
 #if RND callback is used, create the RNDModel network (from auxiliary_models.py)
 if RND_reward:
-    #get the dimension of the observation space of the model
-    observation_space_dim = vec_env.observation_space.shape[0]
+    #check if the observation space is discrete or not to let the RNDModel know if the input needs embedding
+    if isinstance(vec_env.observation_space, gymnasium.spaces.Discrete):
+        observation_space_is_discrete = True
+        observation_space_dim = vec_env.observation_space.n
+    else:
+        observation_space_is_discrete = False
+        observation_space_dim = vec_env.observation_space.shape[0]
     # Initialize the RND model with the appropriate state dimension
-    RND = RND_model(observation_space_dim,
+    RND = RND_model(observation_space_is_discrete,
+                    observation_space_dim,
                     intrinsic_importance_coef,
                     RND_learning_rate, verbose=0).to(device)
+else:
+    RND = None
 
 #train PPO model (the training tunes the MLP so that the policy maximises its reward)
 PPO_model.learn(total_timesteps=total_timesteps,
             callback= custom_callback(RND_reward, RND,
                                       PPO_model, PPO_model_logs_dir, log_name,
                                       show, n_envs, vec_env, sleep_time, period, episodes_redered_by_rollout, n_policy_updates,
-                                      verbose=1),
+                                      verbose=0),
             tb_log_name=log_name)
 
